@@ -1,4 +1,4 @@
-const API = "http://localhost:5000";
+const API = window.location.origin;;
 
 /* If already logged in, skip straight to the right panel */
 (function redirectIfLoggedIn() {

@@ -3,7 +3,7 @@
    Loaded on every dashboard/admin page.
    ========================================================= */
 
-const API = "";
+const API =  window.location.origin;
 
 /* ---------- AUTH HELPERS ---------- */
 

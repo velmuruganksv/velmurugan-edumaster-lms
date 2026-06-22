@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel — EduMaster LMS</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🛡️</span> LMS Admin</div>
+
+    <ul class="menu">
+        <li class="active" onclick="window.location.href='admin.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li onclick="window.location.href='students.html'"><span class="icon">👨‍🎓</span> Students</li>
+        <li onclick="window.location.href='enrollments.html'"><span class="icon">📚</span> Enrollments</li>
+        <li onclick="window.location.href='admin-assignments.html'"><span class="icon">📝</span> Assignment Review</li>
+    </ul>
+
+    <div class="sidebar-footer">
+        <li onclick="logout()" style="list-style:none; display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:10px; cursor:pointer; color:var(--text-dim); font-size:14.5px; font-weight:500;">
+            <span class="icon">🚪</span> Logout
+        </li>
+    </div>
+</div>
+
+<div class="main">
+
+    <div class="topbar">
+        <div class="topbar-left">
+            <h3 style="font-family:'Outfit',sans-serif; font-size:18px;">Admin Panel</h3>
+        </div>
+        <div class="welcome-pill">👋 Welcome, <strong id="topbarName">Admin</strong></div>
+    </div>
+
+    <div class="hero">
+        <h1>🛡️ Welcome to the Admin Panel</h1>
+        <p>Manage courses, students, enrollments, and assignment grading</p>
+    </div>
+
+    <div class="cards">
+        <div class="card accent-primary">
+            <h3>Total Courses</h3>
+            <div class="number" id="statCourses">—</div>
+        </div>
+        <div class="card accent-cyan">
+            <h3>Total Students</h3>
+            <div class="number" id="statStudents">—</div>
+        </div>
+        <div class="card accent-amber">
+            <h3>Submissions</h3>
+            <div class="number" id="statAssignments">—</div>
+        </div>
+        <div class="card accent-green">
+            <h3>Certificates Issued</h3>
+            <div class="number" id="statCertificates">—</div>
+        </div>
+    </div>
+
+    <!-- ADD COURSE -->
+    <div class="info-card" style="margin-top:8px;">
+        <h2 style="margin-bottom:14px;">📚 Add New Course</h2>
+
+        <input type="text" id="courseName" placeholder="Course Name">
+        <input type="text" id="instructor" placeholder="Instructor Name">
+        <input type="url" id="coursePdf" placeholder="Course PDF link (https://...) — optional">
+
+        <button class="submit-btn" style="margin-top:14px;" onclick="addCourse()" id="addCourseBtn">➕ Add Course</button>
+    </div>
+
+    <h2 class="section-title">📦 Courses</h2>
+
+    <div id="courseList" class="course-grid">
+        <div class="loading-row" style="grid-column:1/-1;">
+            <div class="spinner"></div>
+            Loading courses...
+        </div>
+    </div>
+
+    <h2 class="section-title">📝 Recent Assignment Submissions</h2>
+
+    <div id="submissionList">
+        <div class="loading-row">
+            <div class="spinner"></div>
+            Loading submissions...
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+const user = requireAuth("admin");
+
+if (user) {
+    document.getElementById("topbarName").textContent = user.name;
+}
+
+async function loadStats() {
+    try {
+        const data = await apiFetch("/stats");
+        document.getElementById("statCourses").textContent = data.courses;
+        document.getElementById("statStudents").textContent = data.students;
+        document.getElementById("statAssignments").textContent = data.assignments;
+        document.getElementById("statCertificates").textContent = data.certificates;
+    } catch {}
+}
+
+async function addCourse() {
+
+    const title = document.getElementById("courseName").value.trim();
+    const instructor = document.getElementById("instructor").value.trim();
+    const pdfUrl = document.getElementById("coursePdf").value.trim();
+    const btn = document.getElementById("addCourseBtn");
+
+    if (!title || !instructor) {
+        showToast("Please fill in both fields", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Adding...";
+
+    try {
+
+        const data = await apiFetch("/add-course", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, instructor, pdfUrl })
+        });
+
+        showToast(data.message || "Course added", "success");
+
+        document.getElementById("courseName").value = "";
+        document.getElementById("instructor").value = "";
+        document.getElementById("coursePdf").value = "";
+
+        loadCourses();
+        loadStats();
+
+    } catch {
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "➕ Add Course";
+    }
+}
+
+async function loadCourses() {
+
+    const container = document.getElementById("courseList");
+
+    try {
+
+        const courses = await apiFetch("/courses");
+
+        if (!courses || courses.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    No courses yet. Add your first course above.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = courses.map(course => `
+            <div class="course-card">
+                <div class="course-card-top">
+                    <div>
+                        <h3>${escapeHtml(course.title)}</h3>
+                        <p class="instructor">👨‍🏫 ${escapeHtml(course.instructor)}</p>
+                        ${course.pdfUrl ? `<p class="instructor">📄 PDF attached</p>` : `<p class="instructor" style="color:var(--text-faint);">📄 No PDF yet</p>`}
+                    </div>
+                </div>
+            </div>
+        `).join("");
+
+    } catch {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load courses.
+            </div>
+        `;
+    }
+}
+
+async function loadSubmissions() {
+
+    const container = document.getElementById("submissionList");
+
+    try {
+
+        const submissions = await apiFetch("/assignments");
+
+        if (!submissions || submissions.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    No submissions yet.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = submissions.slice(0, 6).map(sub => `
+            <div class="list-card">
+                <div class="list-card-head">
+                    <div>
+                        <h3>👤 ${escapeHtml(sub.studentName)}</h3>
+                        <p>🔗 ${escapeHtml(sub.assignment)}</p>
+                    </div>
+                    <span class="pill">${escapeHtml(sub.courseTitle || "—")}</span>
+                </div>
+                <p style="font-size:13px; color:var(--text-faint);">
+                    ${new Date(sub.submittedAt).toLocaleString("en-IN", { day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" })}
+                </p>
+            </div>
+        `).join("");
+
+    } catch {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load submissions.
+            </div>
+        `;
+    }
+}
+
+if (user) {
+    loadStats();
+    loadCourses();
+    loadSubmissions();
+}
+
+</script>
+
+</body>
+</html>

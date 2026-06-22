@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile — EduMaster LMS</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🎓</span> EduMaster</div>
+    <ul class="menu">
+        <li onclick="window.location.href='dashboard.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li onclick="window.location.href='courses.html'"><span class="icon">📚</span> Courses</li>
+        <li onclick="window.location.href='attendance.html'"><span class="icon">📊</span> Attendance</li>
+        <li onclick="window.location.href='assignments.html'"><span class="icon">📝</span> Assignments</li>
+        <li onclick="window.location.href='certificates.html'"><span class="icon">🏆</span> Certificates</li>
+        <li class="active" onclick="window.location.href='profile.html'"><span class="icon">👤</span> Profile</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+
+    <div class="course-hero">
+        <h1>👤 Student Profile</h1>
+        <p>Manage your personal information and login details</p>
+    </div>
+
+    <div class="profile-card">
+        <div class="avatar" id="avatar">?</div>
+        <div class="profile-info">
+            <h2 id="studentName">Loading...</h2>
+            <p id="studentEmail">Loading...</p>
+        </div>
+    </div>
+
+    <div class="info-card" style="margin-top:20px;">
+
+        <h2 style="margin-bottom:8px;">Account Details</h2>
+        <p style="font-size:13px; color:var(--text-faint); margin-bottom:6px;">
+            Changing your email here changes the email you log in with.
+        </p>
+
+        <label>Full Name</label>
+        <input type="text" id="name" placeholder="Your name">
+
+        <label>Email</label>
+        <input type="email" id="email" placeholder="you@example.com">
+
+        <button class="submit-btn" style="margin-top:18px;" onclick="saveAccountDetails()" id="saveAccountBtn">
+            💾 Save Account Details
+        </button>
+
+        <p class="status-msg" id="accountStatus"></p>
+
+    </div>
+
+    <div class="info-card" style="margin-top:20px;">
+
+        <h2 style="margin-bottom:8px;">Change Password</h2>
+        <p style="font-size:13px; color:var(--text-faint); margin-bottom:6px;">
+            Leave blank if you don't want to change your password.
+        </p>
+
+        <label>Current Password</label>
+        <div class="password-field">
+            <input type="password" id="currentPassword" placeholder="Required to set a new password">
+            <button type="button" class="password-toggle" onclick="togglePassword('currentPassword', this)" aria-label="Show password">👁</button>
+        </div>
+
+        <label>New Password</label>
+        <div class="password-field">
+            <input type="password" id="newPassword" placeholder="At least 4 characters">
+            <button type="button" class="password-toggle" onclick="togglePassword('newPassword', this)" aria-label="Show password">👁</button>
+        </div>
+
+        <button class="submit-btn" style="margin-top:18px;" onclick="changePassword()" id="savePasswordBtn">
+            🔒 Update Password
+        </button>
+
+        <p class="status-msg" id="passwordStatus"></p>
+
+    </div>
+
+    <div class="info-card" style="margin-top:20px;">
+
+        <h2 style="margin-bottom:8px;">Additional Information</h2>
+        <p style="font-size:13px; color:var(--text-faint); margin-bottom:6px;">
+            Saved locally on this device.
+        </p>
+
+        <label>Department</label>
+        <input type="text" id="department" placeholder="e.g. Computer Science">
+
+        <label>Phone</label>
+        <input type="text" id="phone" placeholder="e.g. +91 9876543210">
+
+        <label>Skills</label>
+        <input type="text" id="skills" placeholder="e.g. HTML, CSS, JavaScript">
+
+        <button class="submit-btn" style="margin-top:18px;" onclick="saveExtraInfo()" id="saveExtraBtn">💾 Save</button>
+
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+let user = requireAuth("student");
+
+function togglePassword(inputId, btn) {
+    const input = document.getElementById(inputId);
+    const isHidden = input.type === "password";
+    input.type = isHidden ? "text" : "password";
+    btn.textContent = isHidden ? "🙈" : "👁";
+}
+
+async function loadProfile() {
+    document.getElementById("avatar").textContent = initials(user.name);
+    document.getElementById("studentName").textContent = user.name;
+    document.getElementById("studentEmail").textContent = user.email;
+    document.getElementById("name").value = user.name;
+    document.getElementById("email").value = user.email;
+
+    try {
+        const extra = await apiFetch(`/my-profile/${encodeURIComponent(user.email)}`);
+        document.getElementById("department").value = extra.department || "";
+        document.getElementById("phone").value = extra.phone || "";
+        document.getElementById("skills").value = extra.skills || "";
+    } catch {
+        // apiFetch already shows a toast; fields just stay blank
+    }
+}
+
+async function saveAccountDetails() {
+
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const btn = document.getElementById("saveAccountBtn");
+    const statusEl = document.getElementById("accountStatus");
+
+    if (!name || !email) {
+        showToast("Name and email can't be empty", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+    statusEl.textContent = "";
+
+    try {
+
+        const data = await apiFetch("/update-profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email })
+        });
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        user = data.user;
+
+        document.getElementById("topbarName")?.replaceChildren(document.createTextNode(user.name));
+        document.getElementById("studentName").textContent = user.name;
+        document.getElementById("studentEmail").textContent = user.email;
+        document.getElementById("avatar").textContent = initials(user.name);
+
+        statusEl.textContent = "✅ Saved. You'll log in with your new details from now on.";
+        showToast("Account details updated", "success");
+
+    } catch {
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "💾 Save Account Details";
+    }
+}
+
+async function changePassword() {
+
+    const currentPassword = document.getElementById("currentPassword").value;
+    const newPassword = document.getElementById("newPassword").value;
+    const btn = document.getElementById("savePasswordBtn");
+    const statusEl = document.getElementById("passwordStatus");
+
+    if (!newPassword) {
+        showToast("Enter a new password first", "error");
+        return;
+    }
+
+    if (newPassword.length < 4) {
+        showToast("New password must be at least 4 characters", "error");
+        return;
+    }
+
+    if (!currentPassword) {
+        showToast("Enter your current password to confirm", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Updating...";
+    statusEl.textContent = "";
+
+    try {
+
+        const data = await apiFetch("/update-profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ currentPassword, newPassword })
+        });
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("user", JSON.stringify(data.user));
+
+        document.getElementById("currentPassword").value = "";
+        document.getElementById("newPassword").value = "";
+
+        statusEl.textContent = "✅ Password updated. Use your new password next time you log in.";
+        showToast("Password updated successfully", "success");
+
+    } catch {
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "🔒 Update Password";
+    }
+}
+
+async function saveExtraInfo() {
+
+    const department = document.getElementById("department").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const skills = document.getElementById("skills").value.trim();
+    const btn = document.getElementById("saveExtraBtn");
+
+    btn.disabled = true;
+    btn.textContent = "Saving...";
+
+    try {
+
+        await apiFetch("/update-profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ department, phone, skills })
+        });
+
+        showToast("Additional info saved", "success");
+
+    } catch {
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "💾 Save";
+    }
+}
+
+if (user) {
+    loadProfile();
+}
+
+</script>
+
+</body>
+</html>

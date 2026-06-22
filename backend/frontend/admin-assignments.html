@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Assignment Review — EduMaster LMS</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🛡️</span> LMS Admin</div>
+    <ul class="menu">
+        <li onclick="window.location.href='admin.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li onclick="window.location.href='students.html'"><span class="icon">👨‍🎓</span> Students</li>
+        <li onclick="window.location.href='enrollments.html'"><span class="icon">📚</span> Enrollments</li>
+        <li class="active" onclick="window.location.href='admin-assignments.html'"><span class="icon">📝</span> Assignment Review</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="admin.html" class="back-btn">← Back to Admin</a>
+
+    <div class="course-hero">
+        <h1>📝 Assignment Review Panel</h1>
+        <p>Grade submissions, then issue certificates once a student has made enough progress</p>
+    </div>
+
+    <h2 class="section-title">📎 Submitted Assignments</h2>
+
+    <div id="assignmentContainer">
+        <div class="loading-row">
+            <div class="spinner"></div>
+            Loading assignments...
+        </div>
+    </div>
+
+    <h2 class="section-title">
+        🏆 Certificate Eligibility
+        <span style="font-size:12.5px; font-weight:600; color:var(--text-faint); margin-left:4px;">
+            (course progress ≥ 50% required)
+        </span>
+    </h2>
+
+    <div id="enrollmentContainer">
+        <div class="loading-row">
+            <div class="spinner"></div>
+            Loading enrollments...
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+requireAuth("admin");
+
+const PASSING_PROGRESS = 50;
+
+/* ---------- ASSIGNMENT GRADING ---------- */
+
+async function loadAssignments() {
+
+    const container = document.getElementById("assignmentContainer");
+
+    try {
+
+        const assignments = await apiFetch("/assignments");
+
+        if (!assignments || assignments.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    No assignments submitted yet.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = assignments.map(a => {
+
+            const isPending = a.grade === "Pending";
+
+            return `
+            <div class="list-card">
+
+                <div class="list-card-head">
+                    <div>
+                        <h3>👨‍🎓 ${escapeHtml(a.studentName)}</h3>
+                        <p>📎 ${escapeHtml(a.assignment)}</p>
+                        ${a.courseTitle ? `<p>📚 ${escapeHtml(a.courseTitle)}</p>` : ""}
+                    </div>
+                    <span class="pill" style="background:${isPending ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)'}; color:${isPending ? 'var(--warning)' : 'var(--success)'};">
+                        ${isPending ? "⏳ Pending" : `🎓 ${escapeHtml(a.grade)} (${a.marks})`}
+                    </span>
+                </div>
+
+                <div class="row-inline">
+                    <input type="number" id="marks-${a._id}" placeholder="Marks" min="0" max="100" value="${a.marks || ''}">
+
+                    <button class="grade-btn" onclick="gradeAssignment('${a._id}')">
+                        Grade Assignment
+                    </button>
+                </div>
+
+                <div class="status-msg" id="status-${a._id}"></div>
+
+            </div>
+            `;
+        }).join("");
+
+    } catch {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load assignments. Check that the backend is running.
+            </div>
+        `;
+    }
+}
+
+async function gradeAssignment(id) {
+
+    const marksInput = document.getElementById(`marks-${id}`);
+    const marks = marksInput.value;
+
+    if (marks === "" || isNaN(marks)) {
+        showToast("Enter a valid mark", "error");
+        return;
+    }
+
+    try {
+
+        const data = await apiFetch(`/assignment/${id}/grade`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ marks: Number(marks) })
+        });
+
+        document.getElementById(`status-${id}`).textContent =
+            `✅ Grade assigned: ${data.assignment.grade} (${data.assignment.marks} marks)`;
+
+        showToast("Marks updated successfully", "success");
+
+    } catch {}
+}
+
+/* ---------- CERTIFICATE ELIGIBILITY (driven by enrollment progress) ---------- */
+
+async function loadEnrollmentsForCertificates() {
+
+    const container = document.getElementById("enrollmentContainer");
+
+    try {
+
+        const enrollments = await apiFetch("/enrollments-detailed");
+
+        if (!enrollments || enrollments.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    No enrollments yet. Enroll students in the Enrollments page first.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = enrollments.map(e => {
+
+            const eligible = e.progress >= PASSING_PROGRESS;
+            const alreadyIssued = e.certificateIssued;
+
+            let buttonHtml;
+            if (alreadyIssued) {
+                buttonHtml = `<button class="certificate-btn" disabled style="opacity:0.5; cursor:not-allowed;">✅ Already Issued</button>`;
+            } else if (eligible) {
+                buttonHtml = `<button class="certificate-btn" onclick="issueCertificate('${e._id}', '${escapeHtml(e.studentName)}')">🏆 Issue Certificate</button>`;
+            } else {
+                buttonHtml = `<button class="certificate-btn" disabled style="opacity:0.4; cursor:not-allowed;" title="Needs ${PASSING_PROGRESS}%+ progress">🔒 Not Eligible</button>`;
+            }
+
+            return `
+            <div class="list-card">
+                <div class="list-card-head">
+                    <div>
+                        <h3>👨‍🎓 ${escapeHtml(e.studentName)}</h3>
+                        <p>📚 ${escapeHtml(e.courseTitle)}</p>
+                    </div>
+                    <span class="pill" style="background:${eligible ? 'rgba(52,211,153,0.15)' : 'rgba(251,113,133,0.15)'}; color:${eligible ? 'var(--success)' : 'var(--danger)'};">
+                        ${e.progress}% progress
+                    </span>
+                </div>
+
+                <div class="row-inline">
+                    ${buttonHtml}
+                </div>
+
+                <div class="status-msg" id="cert-status-${e._id}"></div>
+            </div>
+            `;
+        }).join("");
+
+    } catch {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load enrollments. Check that the backend is running.
+            </div>
+        `;
+    }
+}
+
+async function issueCertificate(enrollmentId, studentName) {
+
+    try {
+
+        const data = await apiFetch("/issue-certificate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ enrollmentId, grade: "Completed" })
+        });
+
+        document.getElementById(`cert-status-${enrollmentId}`).textContent =
+            `🏆 Certificate issued for ${studentName}`;
+
+        showToast(data.message || "Certificate issued", "success");
+
+        loadEnrollmentsForCertificates();
+
+    } catch {}
+}
+
+loadAssignments();
+loadEnrollmentsForCertificates();
+
+</script>
+
+</body>
+</html>

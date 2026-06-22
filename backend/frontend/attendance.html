@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance — EduMaster LMS</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🎓</span> EduMaster</div>
+    <ul class="menu">
+        <li onclick="window.location.href='dashboard.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li onclick="window.location.href='courses.html'"><span class="icon">📚</span> Courses</li>
+        <li class="active" onclick="window.location.href='attendance.html'"><span class="icon">📊</span> Attendance</li>
+        <li onclick="window.location.href='assignments.html'"><span class="icon">📝</span> Assignments</li>
+        <li onclick="window.location.href='certificates.html'"><span class="icon">🏆</span> Certificates</li>
+        <li onclick="window.location.href='profile.html'"><span class="icon">👤</span> Profile</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+
+    <div class="course-hero">
+        <h1>📊 Attendance Dashboard</h1>
+        <p>Track your attendance performance</p>
+    </div>
+
+    <div class="cards">
+        <div class="card accent-cyan">
+            <h3>Attendance %</h3>
+            <div class="number" id="attendancePercent">—</div>
+        </div>
+        <div class="card accent-green">
+            <h3>Present Days</h3>
+            <div class="number" id="presentDays">—</div>
+        </div>
+        <div class="card" style="--num-color:var(--danger);">
+            <h3>Absent Days</h3>
+            <div class="number" id="absentDays" style="color:var(--danger);">—</div>
+        </div>
+    </div>
+
+    <div class="assignments" style="margin-top:30px;">
+        <h2 style="margin-bottom:8px;">📅 Attendance Records</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="attendanceTable">
+                <tr><td colspan="2" class="loading-row">Loading...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+requireAuth("student");
+
+async function loadAttendance() {
+
+    try {
+
+        const data = await apiFetch("/attendance");
+
+        document.getElementById("attendancePercent").textContent = data.percentage + "%";
+        document.getElementById("presentDays").textContent = data.presentDays;
+        document.getElementById("absentDays").textContent = data.absentDays;
+
+        const table = document.getElementById("attendanceTable");
+
+        if (!data.records || data.records.length === 0) {
+            table.innerHTML = `<tr><td colspan="2" class="loading-row">No records yet</td></tr>`;
+            return;
+        }
+
+        table.innerHTML = data.records.map(record => {
+            const isPresent = record.status === "Present";
+            const pillClass = isPresent ? "status-present" : "status-absent";
+            const icon = isPresent ? "✅" : "❌";
+
+            return `
+                <tr>
+                    <td>${escapeHtml(record.date)}</td>
+                    <td><span class="status-pill ${pillClass}">${icon} ${escapeHtml(record.status)}</span></td>
+                </tr>
+            `;
+        }).join("");
+
+    } catch {
+        document.getElementById("attendanceTable").innerHTML =
+            `<tr><td colspan="2" class="loading-row">Couldn't load attendance.</td></tr>`;
+    }
+}
+
+loadAttendance();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course Details — EduMaster LMS</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🎓</span> EduMaster</div>
+    <ul class="menu">
+        <li onclick="window.location.href='dashboard.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li class="active" onclick="window.location.href='courses.html'"><span class="icon">📚</span> Courses</li>
+        <li onclick="window.location.href='attendance.html'"><span class="icon">📊</span> Attendance</li>
+        <li onclick="window.location.href='assignments.html'"><span class="icon">📝</span> Assignments</li>
+        <li onclick="window.location.href='certificates.html'"><span class="icon">🏆</span> Certificates</li>
+        <li onclick="window.location.href='profile.html'"><span class="icon">👤</span> Profile</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="courses.html" class="back-btn">← Back to Courses</a>
+
+    <div class="course-hero">
+        <h1 id="courseTitle">Loading...</h1>
+        <p id="courseDescription">Fetching course details...</p>
+    </div>
+
+    <div class="course-info">
+
+        <div class="info-card">
+            <h3>📊 Progress</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width:0%"></div>
+            </div>
+            <p id="progressText" style="color:var(--text-dim); font-size:13.5px;"></p>
+        </div>
+
+        <div class="info-card">
+            <h3>📚 Modules</h3>
+            <ul id="moduleList"><li>Loading...</li></ul>
+        </div>
+
+        <div class="info-card">
+            <h3>👨‍🏫 Instructor</h3>
+            <p id="instructorName" style="font-weight:700; font-size:15px; margin-top:8px;"></p>
+            <p style="color:var(--text-dim); font-size:13.5px;">Course Instructor</p>
+        </div>
+
+    </div>
+
+    <div class="info-card" id="pdfCard" style="margin-top:20px; display:none;">
+        <h3>📄 Course Material</h3>
+        <p style="color:var(--text-dim); font-size:14px; margin-top:8px;">
+            Read through the course PDF, then mark it as read to update your progress.
+        </p>
+
+        <a id="pdfLink" href="#" target="_blank" rel="noopener noreferrer" class="submit-btn"
+           style="display:inline-block; text-decoration:none; margin-top:14px; margin-right:10px;">
+            📖 Open PDF
+        </a>
+
+        <button class="submit-btn" id="markReadBtn" onclick="markPdfRead()"
+                style="background:var(--success); margin-top:14px;">
+            ✅ Mark as Read
+        </button>
+
+        <p id="pdfReadStatus" style="color:var(--success); font-size:13px; margin-top:10px; font-weight:600;"></p>
+    </div>
+
+    <div class="info-card" style="margin-top:20px;">
+        <h3>📝 Assignment</h3>
+        <p style="color:var(--text-dim); font-size:14px; margin-top:8px;">
+            Build a simple login system using HTML, CSS, JS.
+        </p>
+
+        <input type="text" id="assignmentText" placeholder="Enter GitHub link or project name">
+
+        <button class="submit-btn" style="margin-top:14px;" onclick="submitAssignment()" id="submitBtn">
+            Submit Assignment
+        </button>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+const user = requireAuth("student");
+const courseId = localStorage.getItem("courseId");
+
+if (!courseId) {
+    window.location.href = "courses.html";
+}
+
+let currentCourse = null;
+
+async function loadCourse() {
+
+    try {
+
+        const course = await apiFetch(`/course/${courseId}?studentEmail=${encodeURIComponent(user.email)}`);
+        currentCourse = course;
+
+        document.getElementById("courseTitle").textContent = course.title;
+        document.getElementById("courseDescription").textContent =
+            `Taught by ${course.instructor}`;
+
+        document.getElementById("instructorName").textContent = course.instructor;
+
+        const progress = course.myProgress ?? 0;
+        document.getElementById("progressFill").style.width = progress + "%";
+        document.getElementById("progressText").textContent = progress + "% Completed";
+
+        const moduleList = document.getElementById("moduleList");
+
+        if (!course.modules || course.modules.length === 0) {
+            moduleList.innerHTML = "<li>No modules added yet</li>";
+        } else {
+            moduleList.innerHTML = course.modules.map(m => `<li>${escapeHtml(m)}</li>`).join("");
+        }
+
+        if (course.pdfUrl) {
+            document.getElementById("pdfCard").style.display = "block";
+            document.getElementById("pdfLink").href = course.pdfUrl;
+
+            if (course.pdfReadAt) {
+                const readDate = new Date(course.pdfReadAt).toLocaleDateString("en-IN", {
+                    day: "numeric", month: "short", year: "numeric"
+                });
+                document.getElementById("pdfReadStatus").textContent = `✅ Marked as read on ${readDate}`;
+                document.getElementById("markReadBtn").disabled = true;
+                document.getElementById("markReadBtn").textContent = "✅ Already Marked as Read";
+            }
+        }
+
+    } catch {
+        document.getElementById("courseTitle").textContent = "Course Not Found";
+        document.getElementById("courseDescription").textContent =
+            "This course may have been removed.";
+    }
+}
+
+async function markPdfRead() {
+
+    const btn = document.getElementById("markReadBtn");
+    btn.disabled = true;
+    btn.textContent = "Updating...";
+
+    try {
+
+        const data = await apiFetch("/mark-pdf-read", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ studentEmail: user.email, courseId })
+        });
+
+        showToast(data.message || "Progress updated", "success");
+
+        document.getElementById("progressFill").style.width = data.progress + "%";
+        document.getElementById("progressText").textContent = data.progress + "% Completed";
+        document.getElementById("pdfReadStatus").textContent = "✅ Marked as read just now";
+        btn.textContent = "✅ Already Marked as Read";
+
+    } catch {
+        btn.disabled = false;
+        btn.textContent = "✅ Mark as Read";
+    }
+}
+
+async function submitAssignment() {
+
+    const assignmentInput = document.getElementById("assignmentText");
+    const assignment = assignmentInput.value.trim();
+    const btn = document.getElementById("submitBtn");
+
+    if (!assignment) {
+        showToast("Please enter a GitHub link or project name", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Submitting...";
+
+    try {
+
+        const courseTitle = document.getElementById("courseTitle").textContent;
+
+        const data = await apiFetch("/submit-assignment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                studentName: user.name,
+                studentEmail: user.email,
+                courseTitle,
+                assignment
+            })
+        });
+
+        showToast(data.message || "Assignment submitted successfully", "success");
+        assignmentInput.value = "";
+
+    } catch {
+        // error toast already shown by apiFetch
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Submit Assignment";
+    }
+}
+
+if (user) {
+    loadCourse();
+}
+
+</script>
+
+</body>
+</html>

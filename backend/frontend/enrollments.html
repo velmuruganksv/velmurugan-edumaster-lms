@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Course Enrollment — EduMaster LMS</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🛡️</span> LMS Admin</div>
+    <ul class="menu">
+        <li onclick="window.location.href='admin.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li onclick="window.location.href='students.html'"><span class="icon">👨‍🎓</span> Students</li>
+        <li class="active" onclick="window.location.href='enrollments.html'"><span class="icon">📚</span> Enrollments</li>
+        <li onclick="window.location.href='admin-assignments.html'"><span class="icon">📝</span> Assignment Review</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="admin.html" class="back-btn">← Back to Admin</a>
+
+    <div class="course-hero">
+        <h1>📚 Course Enrollment</h1>
+        <p>Assign students to courses</p>
+    </div>
+
+    <div class="info-card">
+
+        <h2 style="margin-bottom:14px;">Enroll Student</h2>
+
+        <label>Student</label>
+        <select id="studentSelect"><option value="">Loading students...</option></select>
+
+        <label>Course</label>
+        <select id="courseSelect"><option value="">Loading courses...</option></select>
+
+        <button class="submit-btn" style="margin-top:18px;" onclick="enrollStudent()" id="enrollBtn">Enroll</button>
+
+    </div>
+
+    <h2 class="section-title">Current Enrollments</h2>
+
+    <div id="enrollmentList">
+        <div class="loading-row">
+            <div class="spinner"></div>
+            Loading enrollments...
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+requireAuth("admin");
+
+async function loadSelectOptions() {
+
+    try {
+
+        const [students, courses] = await Promise.all([
+            apiFetch("/students"),
+            apiFetch("/courses")
+        ]);
+
+        const studentSelect = document.getElementById("studentSelect");
+        const courseSelect = document.getElementById("courseSelect");
+
+        studentSelect.innerHTML = students.length
+            ? `<option value="">Select a student</option>` +
+              students.map(s => `<option value="${s._id}">${escapeHtml(s.name)} (${escapeHtml(s.email)})</option>`).join("")
+            : `<option value="">No students yet</option>`;
+
+        courseSelect.innerHTML = courses.length
+            ? `<option value="">Select a course</option>` +
+              courses.map(c => `<option value="${c._id}">${escapeHtml(c.title)}</option>`).join("")
+            : `<option value="">No courses yet</option>`;
+
+    } catch {}
+}
+
+async function enrollStudent() {
+
+    const studentId = document.getElementById("studentSelect").value;
+    const courseId = document.getElementById("courseSelect").value;
+    const btn = document.getElementById("enrollBtn");
+
+    if (!studentId || !courseId) {
+        showToast("Please select both a student and a course", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Enrolling...";
+
+    try {
+
+        const data = await apiFetch("/enroll", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ studentId, courseId })
+        });
+
+        showToast(data.message || "Student enrolled", "success");
+        loadEnrollments();
+
+    } catch {
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Enroll";
+    }
+}
+
+async function loadEnrollments() {
+
+    const container = document.getElementById("enrollmentList");
+
+    try {
+
+        const data = await apiFetch("/enrollments");
+
+        if (!data || data.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    No enrollments yet.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = data.map(item => {
+
+            const eligible = item.progress >= 50;
+
+            return `
+            <div class="list-card">
+                <div class="list-card-head" style="margin-bottom:0;">
+                    <p style="font-size:14.5px; color:var(--text);">
+                        👨‍🎓 <strong>${escapeHtml(item.studentName)}</strong>
+                        &nbsp;→&nbsp;
+                        📚 <strong>${escapeHtml(item.courseTitle)}</strong>
+                    </p>
+                    <span class="pill" style="background:${eligible ? 'rgba(52,211,153,0.15)' : 'rgba(148,163,184,0.15)'}; color:${eligible ? 'var(--success)' : 'var(--text-dim)'};">
+                        ${item.progress}% progress
+                    </span>
+                </div>
+            </div>
+            `;
+        }).join("");
+
+    } catch {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load enrollments.
+            </div>
+        `;
+    }
+}
+
+loadSelectOptions();
+loadEnrollments();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificates — EduMaster LMS</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🎓</span> EduMaster</div>
+    <ul class="menu">
+        <li onclick="window.location.href='dashboard.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li onclick="window.location.href='courses.html'"><span class="icon">📚</span> Courses</li>
+        <li onclick="window.location.href='attendance.html'"><span class="icon">📊</span> Attendance</li>
+        <li onclick="window.location.href='assignments.html'"><span class="icon">📝</span> Assignments</li>
+        <li class="active" onclick="window.location.href='certificates.html'"><span class="icon">🏆</span> Certificates</li>
+        <li onclick="window.location.href='profile.html'"><span class="icon">👤</span> Profile</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+
+    <div class="course-hero">
+        <h1>🏆 My Certificates</h1>
+        <p>View and download certificates you've earned</p>
+    </div>
+
+    <div class="course-grid" id="certificateContainer">
+        <div class="loading-row" style="grid-column:1/-1;">
+            <div class="spinner"></div>
+            Loading certificates...
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+const user = requireAuth("student");
+
+async function loadCertificates() {
+
+    const container = document.getElementById("certificateContainer");
+
+    try {
+
+        const certificates = await apiFetch(`/my-certificates/${encodeURIComponent(user.email)}`);
+
+        if (!certificates || certificates.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">🏅</span>
+                    No certificates yet. Complete a course and your instructor will issue one.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = certificates.map(cert => `
+            <div class="course-card">
+                <div class="course-card-top">
+                    <div>
+                        <h3>🏆 ${escapeHtml(cert.course)}</h3>
+                        <p class="instructor">Grade: ${escapeHtml(cert.grade)}</p>
+                    </div>
+                </div>
+                <p style="font-size:13px; color:var(--text-faint); margin-top:-6px;">
+                    Issued ${new Date(cert.issuedDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                </p>
+                <button class="submit-btn" onclick="downloadCertificate('${cert._id}')">
+                    ⬇ Download Certificate
+                </button>
+            </div>
+        `).join("");
+
+    } catch {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load certificates. Check that the backend is running.
+            </div>
+        `;
+    }
+}
+
+function downloadCertificate(certId) {
+    window.open(`${API}/certificate/${certId}`, "_blank");
+}
+
+if (user) {
+    loadCertificates();
+}
+
+</script>
+
+</body>
+</html>

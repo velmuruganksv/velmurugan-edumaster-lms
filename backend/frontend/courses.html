@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Courses — EduMaster LMS</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🎓</span> EduMaster</div>
+    <ul class="menu">
+        <li onclick="window.location.href='dashboard.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li class="active" onclick="window.location.href='courses.html'"><span class="icon">📚</span> Courses</li>
+        <li onclick="window.location.href='attendance.html'"><span class="icon">📊</span> Attendance</li>
+        <li onclick="window.location.href='assignments.html'"><span class="icon">📝</span> Assignments</li>
+        <li onclick="window.location.href='certificates.html'"><span class="icon">🏆</span> Certificates</li>
+        <li onclick="window.location.href='profile.html'"><span class="icon">👤</span> Profile</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+
+    <div class="course-hero">
+        <h1>📚 My Courses</h1>
+        <p>Browse everything you're enrolled in</p>
+    </div>
+
+    <div class="topbar" style="margin-bottom:18px;">
+        <div class="topbar-left" style="width:100%;">
+            <div class="search-wrap" style="width:100%;">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search" id="searchInput" placeholder="Search by course or instructor..." oninput="searchCourses()">
+            </div>
+        </div>
+    </div>
+
+    <div class="course-grid" id="courseGrid">
+        <div class="loading-row" style="grid-column:1/-1;">
+            <div class="spinner"></div>
+            Loading courses...
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+const user = requireAuth("student");
+
+let allCourses = [];
+
+async function loadCourses() {
+
+    const grid = document.getElementById("courseGrid");
+
+    try {
+        const courses = await apiFetch(`/courses?studentEmail=${encodeURIComponent(user.email)}`);
+        allCourses = courses;
+        renderCourses(courses);
+    } catch {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load courses. Check that the backend is running.
+            </div>
+        `;
+    }
+}
+
+function renderCourses(courses) {
+
+    const grid = document.getElementById("courseGrid");
+
+    if (!courses || courses.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">📭</span>
+                No courses assigned yet.<br>
+                Your admin/instructor will assign courses to you.
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = courses.map(course => `
+        <div class="course-card" data-search-text="${escapeHtml(course.title)} ${escapeHtml(course.instructor)}">
+            <div class="course-card-top">
+                <div>
+                    <h3>${escapeHtml(course.title)}</h3>
+                    <p class="instructor">👨‍🏫 ${escapeHtml(course.instructor)}</p>
+                </div>
+                ${progressRing(course.myProgress ?? 0)}
+            </div>
+            <button class="submit-btn" onclick="openCourse('${course._id}')">View Course</button>
+        </div>
+    `).join("");
+}
+
+function searchCourses() {
+
+    const input = document.getElementById("searchInput");
+    const query = input.value.trim().toLowerCase();
+
+    const filtered = query === ""
+        ? allCourses
+        : allCourses.filter(c =>
+            c.title.toLowerCase().includes(query) ||
+            c.instructor.toLowerCase().includes(query)
+        );
+
+    const grid = document.getElementById("courseGrid");
+
+    if (filtered.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">🔍</span>
+                No courses match "${escapeHtml(input.value)}"
+            </div>
+        `;
+        return;
+    }
+
+    renderCourses(filtered);
+}
+
+function openCourse(id) {
+    localStorage.setItem("courseId", id);
+    window.location.href = "course.html";
+}
+
+if (user) {
+    loadCourses();
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Student Management — EduMaster LMS</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🛡️</span> LMS Admin</div>
+    <ul class="menu">
+        <li onclick="window.location.href='admin.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li class="active" onclick="window.location.href='students.html'"><span class="icon">👨‍🎓</span> Students</li>
+        <li onclick="window.location.href='enrollments.html'"><span class="icon">📚</span> Enrollments</li>
+        <li onclick="window.location.href='admin-assignments.html'"><span class="icon">📝</span> Assignment Review</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="admin.html" class="back-btn">← Back to Admin</a>
+
+    <div class="course-hero">
+        <h1>👨‍🎓 Student Management</h1>
+        <p>Add, view, and remove students</p>
+    </div>
+
+    <div class="info-card">
+
+        <h2 style="margin-bottom:14px;">Add Student</h2>
+
+        <input type="text" id="name" placeholder="Student Name">
+        <input type="email" id="email" placeholder="Student Email">
+        <input type="text" id="course" placeholder="Course Name (optional)">
+
+        <button class="submit-btn" style="margin-top:14px;" onclick="addStudent()" id="addBtn">➕ Add Student</button>
+
+    </div>
+
+    <h2 class="section-title">Student List</h2>
+
+    <div id="studentList">
+        <div class="loading-row">
+            <div class="spinner"></div>
+            Loading students...
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+requireAuth("admin");
+
+async function addStudent() {
+
+    const name = document.getElementById("name").value.trim();
+    const email = document.getElementById("email").value.trim();
+    const course = document.getElementById("course").value.trim();
+    const btn = document.getElementById("addBtn");
+
+    if (!name || !email) {
+        showToast("Name and email are required", "error");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Adding...";
+
+    try {
+
+        const data = await apiFetch("/add-student", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, course })
+        });
+
+        showToast(data.message || "Student added", "success");
+
+        document.getElementById("name").value = "";
+        document.getElementById("email").value = "";
+        document.getElementById("course").value = "";
+
+        loadStudents();
+
+    } catch {
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "➕ Add Student";
+    }
+}
+
+async function loadStudents() {
+
+    const container = document.getElementById("studentList");
+
+    try {
+
+        const students = await apiFetch("/students");
+
+        if (!students || students.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    No students added yet.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = students.map(student => `
+            <div class="list-card">
+                <div class="list-card-head">
+                    <div>
+                        <h3>${escapeHtml(student.name)}</h3>
+                        <p>${escapeHtml(student.email)}</p>
+                        ${student.course ? `<p>📚 ${escapeHtml(student.course)}</p>` : ""}
+                    </div>
+                    <button class="delete-btn" onclick="deleteStudent('${student._id}')">Delete</button>
+                </div>
+            </div>
+        `).join("");
+
+    } catch {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load students.
+            </div>
+        `;
+    }
+}
+
+async function deleteStudent(id) {
+
+    if (!confirm("Remove this student? This cannot be undone.")) return;
+
+    try {
+        const data = await apiFetch(`/student/${id}`, { method: "DELETE" });
+        showToast(data.message || "Student deleted", "success");
+        loadStudents();
+    } catch {}
+}
+
+loadStudents();
+
+</script>
+
+</body>
+</html>

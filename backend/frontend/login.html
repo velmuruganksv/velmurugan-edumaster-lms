@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduMaster LMS — Sign In</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="auth-page">
+
+    <!-- BRAND SIDE -->
+    <div class="auth-brand-side">
+
+        <div class="eyebrow">Learning Management System</div>
+
+        <h1 class="brand-title">EDUMASTER</h1>
+
+        <p class="brand-tagline">
+            Courses, assignments, attendance, and certificates —
+            everything you need to learn and grow, in one place.
+        </p>
+
+        <div class="brand-features">
+            <div class="brand-feature">
+                <div class="feature-dot">📚</div>
+                Courses assigned by your instructor, built around you
+            </div>
+            <div class="brand-feature">
+                <div class="feature-dot">📈</div>
+                Track real progress as you complete each course
+            </div>
+            <div class="brand-feature">
+                <div class="feature-dot">🏆</div>
+                Earn certificates you can download and keep
+            </div>
+        </div>
+
+    </div>
+
+    <!-- LOGIN CARD SIDE -->
+    <div class="auth-card-side">
+
+        <div class="auth-container">
+
+            <div class="auth-brand-mini">
+                <div class="brand-mark">🎓</div>
+            </div>
+            <h2 class="auth-title">Welcome to EduMaster</h2>
+            <p class="auth-subtitle">Sign in to continue or create a new account</p>
+
+            <div class="auth-tabs">
+                <div class="auth-tab active" id="tabLogin" onclick="switchTab('login')">Sign In</div>
+                <div class="auth-tab" id="tabSignup" onclick="switchTab('signup')">Sign Up</div>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form class="form-panel active" id="loginPanel" onsubmit="handleLogin(event)">
+
+                <div class="field-group">
+                    <label class="field-label" for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" placeholder="you@example.com" required>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label" for="loginPassword">Password</label>
+                    <div class="password-field">
+                        <input type="password" id="loginPassword" placeholder="••••••••" required>
+                        <button type="button" class="password-toggle" onclick="togglePassword('loginPassword', this)" aria-label="Show password">👁</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="auth-submit" id="loginBtn">Sign In</button>
+
+                <p class="auth-message" id="loginMessage"></p>
+
+                <p class="auth-hint">Admin demo login: <b>admin@lms.com</b> / <b>1234</b></p>
+
+            </form>
+
+            <!-- SIGNUP FORM -->
+            <form class="form-panel" id="signupPanel" onsubmit="handleSignup(event)">
+
+                <div class="field-group">
+                    <label class="field-label" for="signupName">Full Name</label>
+                    <input type="text" id="signupName" placeholder="Your name" required>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label" for="signupEmail">Email</label>
+                    <input type="email" id="signupEmail" placeholder="you@example.com" required>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label" for="signupPassword">Password</label>
+                    <div class="password-field">
+                        <input type="password" id="signupPassword" placeholder="At least 4 characters" required minlength="4">
+                        <button type="button" class="password-toggle" onclick="togglePassword('signupPassword', this)" aria-label="Show password">👁</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="auth-submit" id="signupBtn">Create Account</button>
+
+                <p class="auth-message" id="signupMessage"></p>
+
+                <p class="auth-hint">New accounts start with no courses — your instructor will assign them.</p>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>

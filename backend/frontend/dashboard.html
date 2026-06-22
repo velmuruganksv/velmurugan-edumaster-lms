@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — EduMaster LMS</title>
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🎓</span> EduMaster</div>
+
+    <ul class="menu">
+        <li class="active" onclick="window.location.href='dashboard.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li onclick="window.location.href='courses.html'"><span class="icon">📚</span> Courses</li>
+        <li onclick="window.location.href='attendance.html'"><span class="icon">📊</span> Attendance</li>
+        <li onclick="window.location.href='assignments.html'"><span class="icon">📝</span> Assignments</li>
+        <li onclick="window.location.href='certificates.html'"><span class="icon">🏆</span> Certificates</li>
+        <li onclick="window.location.href='profile.html'"><span class="icon">👤</span> Profile</li>
+    </ul>
+
+    <div class="sidebar-footer">
+        <li onclick="logout()" style="list-style:none; display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:10px; cursor:pointer; color:var(--text-dim); font-size:14.5px; font-weight:500;">
+            <span class="icon">🚪</span> Logout
+        </li>
+    </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+    <div class="topbar">
+        <div class="topbar-left">
+            <div class="search-wrap">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="search" id="searchInput" placeholder="Search your courses..." oninput="searchCourses()">
+            </div>
+        </div>
+        <div class="welcome-pill">👋 Welcome, <strong id="topbarName">Student</strong></div>
+    </div>
+
+    <div class="hero">
+        <h1 id="heroWelcome">Welcome back 👋</h1>
+        <p>Track courses, assignments, and progress in one place</p>
+    </div>
+
+    <div class="cards">
+        <div class="card accent-primary">
+            <h3>Total Courses</h3>
+            <div class="number" id="coursesCount">—</div>
+        </div>
+        <div class="card accent-cyan">
+            <h3>Attendance</h3>
+            <div class="number" id="attendanceCount">—</div>
+        </div>
+        <div class="card accent-amber">
+            <h3>Assignments</h3>
+            <div class="number" id="assignmentCount">—</div>
+        </div>
+        <div class="card accent-green">
+            <h3>Certificates</h3>
+            <div class="number" id="certificateCount">—</div>
+        </div>
+    </div>
+
+    <h2 class="section-title">📚 My Courses</h2>
+
+    <div class="course-grid" id="courseGrid">
+        <div class="loading-row" style="grid-column:1/-1;">
+            <div class="spinner"></div>
+            Loading courses...
+        </div>
+    </div>
+
+    <div class="assignments">
+        <h2 style="margin-bottom:8px;">📅 Upcoming Assignments</h2>
+
+        <div class="task">
+            <p>React Project Submission</p>
+            <span>Due: 22 June</span>
+        </div>
+
+        <div class="task">
+            <p>Database ER Diagram</p>
+            <span>Due: 25 June</span>
+        </div>
+    </div>
+
+    <div class="achievements">
+        <h2 class="section-title" style="margin-top:0;">🏆 Achievements</h2>
+        <div class="badge">🔥 7 Day Streak</div>
+        <div class="badge">🎯 Assignment Master</div>
+        <div class="badge">💻 Full Stack Beginner</div>
+    </div>
+
+    <div class="profile-card">
+        <div class="avatar" id="avatarLetter">?</div>
+        <div class="profile-info">
+            <h3 id="profileName">Loading...</h3>
+            <p id="profileEmail">Loading...</p>
+            <p>Student</p>
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+const user = requireAuth("student");
+
+if (user) {
+
+    document.getElementById("topbarName").textContent = user.name;
+    document.getElementById("heroWelcome").textContent = `Welcome back, ${user.name} 👋`;
+    document.getElementById("profileName").textContent = user.name;
+    document.getElementById("profileEmail").textContent = user.email;
+    document.getElementById("avatarLetter").textContent = initials(user.name);
+}
+
+let allCourses = [];
+
+async function loadStats() {
+    try {
+        const data = await apiFetch(`/stats?studentEmail=${encodeURIComponent(user.email)}`);
+        document.getElementById("coursesCount").textContent = data.courses;
+        document.getElementById("attendanceCount").textContent = data.attendance + "%";
+        document.getElementById("assignmentCount").textContent = data.assignments;
+        document.getElementById("certificateCount").textContent = data.certificates;
+    } catch {
+        // toast already shown by apiFetch
+    }
+}
+
+async function loadCourses() {
+
+    const grid = document.getElementById("courseGrid");
+
+    try {
+
+        const courses = await apiFetch(`/courses?studentEmail=${encodeURIComponent(user.email)}`);
+        allCourses = courses;
+
+        renderCourses(courses);
+
+    } catch {
+
+        grid.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load courses. Check that the backend is running.
+            </div>
+        `;
+    }
+}
+
+function renderCourses(courses) {
+
+    const grid = document.getElementById("courseGrid");
+
+    if (!courses || courses.length === 0) {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">📭</span>
+                No courses assigned yet.<br>
+                Your admin/instructor will assign courses to you — check back soon!
+            </div>
+        `;
+        return;
+    }
+
+    grid.innerHTML = courses.map(course => `
+        <div class="course-card" data-search-text="${escapeHtml(course.title)} ${escapeHtml(course.instructor)}">
+            <div class="course-card-top">
+                <div>
+                    <h3>${escapeHtml(course.title)}</h3>
+                    <p class="instructor">👨‍🏫 ${escapeHtml(course.instructor)}</p>
+                </div>
+                ${progressRing(course.myProgress ?? 0)}
+            </div>
+            <button class="submit-btn" onclick="openCourse('${course._id}')">View Course</button>
+        </div>
+    `).join("");
+}
+
+function searchCourses() {
+
+    const input = document.getElementById("searchInput");
+    const grid = document.getElementById("courseGrid");
+    const query = input.value.trim().toLowerCase();
+
+    const filtered = allCourses.filter(c =>
+        c.title.toLowerCase().includes(query) ||
+        c.instructor.toLowerCase().includes(query)
+    );
+
+    if (filtered.length === 0 && query !== "") {
+        grid.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">🔍</span>
+                No courses match "${escapeHtml(input.value)}"
+            </div>
+        `;
+        return;
+    }
+
+    renderCourses(filtered.length || query === "" ? filtered : allCourses);
+}
+
+function openCourse(id) {
+    localStorage.setItem("courseId", id);
+    window.location.href = "course.html";
+}
+
+if (user) {
+    loadStats();
+    loadCourses();
+}
+
+</script>
+
+</body>
+</html>

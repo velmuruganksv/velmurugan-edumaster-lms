@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Assignments — EduMaster LMS</title>
+<link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="brand"><span class="brand-mark">🎓</span> EduMaster</div>
+    <ul class="menu">
+        <li onclick="window.location.href='dashboard.html'"><span class="icon">🏠</span> Dashboard</li>
+        <li onclick="window.location.href='courses.html'"><span class="icon">📚</span> Courses</li>
+        <li onclick="window.location.href='attendance.html'"><span class="icon">📊</span> Attendance</li>
+        <li class="active" onclick="window.location.href='assignments.html'"><span class="icon">📝</span> Assignments</li>
+        <li onclick="window.location.href='certificates.html'"><span class="icon">🏆</span> Certificates</li>
+        <li onclick="window.location.href='profile.html'"><span class="icon">👤</span> Profile</li>
+    </ul>
+</div>
+
+<div class="main">
+
+    <a href="dashboard.html" class="back-btn">← Back to Dashboard</a>
+
+    <div class="course-hero">
+        <h1>📝 My Assignments</h1>
+        <p>Track the status and grades of everything you've submitted</p>
+    </div>
+
+    <div id="assignmentContainer">
+        <div class="loading-row">
+            <div class="spinner"></div>
+            Loading your assignments...
+        </div>
+    </div>
+
+</div>
+
+<script src="app.js"></script>
+<script>
+
+const user = requireAuth("student");
+
+async function loadAssignments() {
+
+    const container = document.getElementById("assignmentContainer");
+
+    try {
+
+        const assignments = await apiFetch(`/my-assignments/${encodeURIComponent(user.email)}`);
+
+        if (!assignments || assignments.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">📭</span>
+                    You haven't submitted any assignments yet.<br>
+                    Open a course and submit one from the course page.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = assignments.map(item => {
+
+            const isPending = item.grade === "Pending";
+            const pillClass = isPending ? "status-pending" : "status-present";
+
+            return `
+                <div class="list-card">
+                    <div class="list-card-head">
+                        <div>
+                            <h3>${escapeHtml(item.courseTitle || "Assignment")}</h3>
+                            <p>🔗 ${escapeHtml(item.assignment)}</p>
+                        </div>
+                        <span class="pill ${pillClass}" style="background:${isPending ? 'rgba(251,191,36,0.15)' : 'rgba(52,211,153,0.15)'}; color:${isPending ? 'var(--warning)' : 'var(--success)'};">
+                            ${isPending ? "⏳ Pending" : `🎓 ${escapeHtml(item.grade)}`}
+                        </span>
+                    </div>
+                    <p style="font-size:13px; color:var(--text-faint);">
+                        Submitted ${new Date(item.submittedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        ${!isPending ? ` · Marks: ${item.marks}` : ""}
+                    </p>
+                </div>
+            `;
+        }).join("");
+
+    } catch {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-icon">⚠️</span>
+                Couldn't load assignments. Check that the backend is running.
+            </div>
+        `;
+    }
+}
+
+if (user) {
+    loadAssignments();
+}
+
+</script>
+
+</body>
+</html>

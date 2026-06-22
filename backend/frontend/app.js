@@ -3,7 +3,7 @@
    Loaded on every dashboard/admin page.
    ========================================================= */
 
-const API = "http://localhost:5000";
+const API = "";
 
 /* ---------- AUTH HELPERS ---------- */
 
